@@ -37,7 +37,12 @@ pub enum ShipLineError {
 // Use MIN_SHIP and MAX_SHIP in the message instead of typing 2 and 5.
 impl fmt::Display for ShipLineError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "TODO: {self:?}")
+        match self {
+            ShipLineError::MissingComma => write!(f, "line must contain exactly one comma"),
+            ShipLineError::EmptyName => write!(f, "ship name cannot be empty"),
+            ShipLineError::BadLength(text) => write!(f, "'{}' is not a valid number", text),
+            ShipLineError::LengthOutOfRange(n) => write!(f, "length {} is out of range (2-5)", n),
+        }
     }
 }
 
@@ -133,21 +138,30 @@ pub fn sort_scores_desc(records: &mut Vec<ScoreRecord>) {
 // that matches the problem: MissingComma (not exactly one comma), EmptyName,
 // BadLength(the text that did not parse), LengthOutOfRange(the number).
 pub fn parse_ship_line(line: &str) -> Result<ShipSpec, ShipLineError> {
-    let parts: Vec<&str> = line.trim().split(',').collect();
+    let line = line.trim();
+    if line.is_empty() || line.starts_with('#') {
+        return Err(ShipLineError::MissingComma);
+    }
+
+    let parts: Vec<&str> = line.split(',').collect();
     if parts.len() != 2 {
         return Err(ShipLineError::MissingComma);
     }
+
     let name = parts[0].trim();
     if name.is_empty() {
-        return Err(ShipLineError::MissingComma);
+        return Err(ShipLineError::EmptyName);
     }
-    let length = match parts[1].trim().parse::<usize>() {
-        Ok(n) => n,
-        Err(_) => return Err(ShipLineError::MissingComma),
-    };
-    if length < MIN_SHIP || length > MAX_SHIP {
-        return Err(ShipLineError::MissingComma);
+
+    let length_str = parts[1].trim();
+    let length: usize = length_str
+        .parse()
+        .map_err(|_| ShipLineError::BadLength(length_str.to_string()))?;
+
+    if !(2..=5).contains(&length) {
+        return Err(ShipLineError::LengthOutOfRange(length));
     }
+
     Ok(ShipSpec {
         name: name.to_string(),
         length,
