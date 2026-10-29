@@ -1,26 +1,15 @@
 # Error table
 
-One row per failure. Fill in every column. You need at least eight rows.
+# Error Handling Table
 
-| Scenario | Function that detects it | Error value | What the player sees |
-|---|---|---|---|
-| Fleet file does not exist | `load_fleet` | `Err(DataError::Io(..))` (kind `NotFound`) | _(example: your row goes here)_ |
-|  |  |  |  |
-|  |  |  |  |
-|  |  |  |  |
-|  |  |  |  |
-|  |  |  |  |
-|  |  |  |  |
-|  |  |  |  |
-
-Scenarios to cover (add more if you find them):
-
-- fleet file missing
-- a directory given as the fleet path
-- fleet file with only comments
-- fleet file where every line is bad
-- board file with nine rows
-- board file with a bad character
-- scores file missing
-- scores file that cannot be written
-- `K11` typed at the prompt
+| Scenario | Detecting Function | Exact Error Value / Type | What the Player Sees |
+| :--- | :--- | :--- | :--- |
+| **Missing fleet file** | `data::load_fleet` | `std::io::Error` (NotFound) | `Error: could not load data/fleet.txt: ...` followed by program exit (`exit(1)`). |
+| **Folder given as fleet path** | `data::load_fleet` | `std::io::Error` (IsADirectory) | `Error: could not load data/fleet.txt: ...` followed by program exit (`exit(1)`). |
+| **Fleet file with only comments** | `data::load_fleet` | `DataError::NoShips` | `Error: could not load data/fleet.txt: ...` followed by program exit (`exit(1)`). |
+| **Fleet file where every line is bad** | `data::load_fleet` | `Ok(FleetReport)` with populated `skipped` vec and empty `fleet` | Prints each skipped line (`data/fleet.txt line n: <message>`), then `No fleet loaded. Check data/fleet.txt.` and returns to menu. |
+| **Board file with nine rows** | `data::load_board` | `DataError::InvalidBoard` | `Practice board unavailable: ...` |
+| **Board file with a bad character** | `data::load_board` | `DataError::InvalidBoard` | `Practice board unavailable: ...` |
+| **Missing scores file** | `data::load_scores` | `std::io::Error` (NotFound) handled internally as empty records | `scores unavailable: ...` (menu keeps running). |
+| **Scores file that cannot be written** | `data::append_score` | `std::io::Error` | `Could not save the score: ...` (game continues). |
+| **`K11` typed at prompt** | `board::parse_coord` | `CoordError::InvalidCoordinate` | Prints the exact error message from `CoordError`. |
