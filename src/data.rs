@@ -1,5 +1,5 @@
 // Loading and saving game data. Week 11: every failure gets a name (Tasks 3 to 8).
-use crate::board::{Board, Cell, SIZE, new_board};
+use crate::board::{Board, Cell, SIZE};
 use std::fmt;
 use std::fs;
 use std::fs::OpenOptions;
@@ -58,7 +58,15 @@ pub enum BoardError {
 // character or counts the variant carries, and use SIZE instead of typing 10.
 impl fmt::Display for BoardError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "TODO: {self:?}")
+        match self {
+            BoardError::WrongRowCount(n) => write!(f, "board must have 10 rows, found {}", n),
+            BoardError::WrongRowWidth { line, found } => {
+                write!(f, "line {} must have 10 characters, found {}", line, found)
+            }
+            BoardError::BadChar { line, ch } => {
+                write!(f, "line {} has invalid character '{}'", line, ch)
+            }
+        }
     }
 }
 
@@ -208,32 +216,46 @@ pub fn load_fleet(path: &str) -> Result<FleetReport, DataError> {
 // 1-based line number in the file, comments and blank lines included
 // (enumerate() starts at 0). WrongRowCount(n) carries how many rows were found.
 pub fn parse_board(text: &str) -> Result<Board, BoardError> {
-    let mut board = new_board();
-    let mut row = 0;
-    for line in text.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
+    let mut board = [[Cell::Water; SIZE]; SIZE];
+    let mut row_count = 0;
+
+    for (idx, line) in text.lines().enumerate() {
+        let line_num = idx + 1;
+        let trimmed = line.trim();
+
+        // Skip blank lines and comment lines
+        if trimmed.is_empty() || trimmed.starts_with('#') {
             continue;
         }
-        if row >= SIZE {
-            return Err(BoardError::WrongRowCount(row));
+
+        if row_count >= SIZE {
+            row_count += 1;
+            continue;
         }
-        let chars: Vec<char> = line.chars().collect();
-        if chars.len() != SIZE {
-            return Err(BoardError::WrongRowCount(row));
+
+        if trimmed.chars().count() != SIZE {
+            return Err(BoardError::WrongRowWidth {
+                line: line_num,
+                found: trimmed.chars().count(),
+            });
         }
-        for col in 0..SIZE {
-            match chars[col] {
-                '.' => board[row][col] = Cell::Water,
-                'S' => board[row][col] = Cell::Ship,
-                _ => return Err(BoardError::WrongRowCount(row)),
-            }
+
+        for (col_idx, ch) in trimmed.chars().enumerate() {
+            let cell = match ch {
+                '.' => Cell::Water,
+                'S' => Cell::Ship,
+                _ => return Err(BoardError::BadChar { line: line_num, ch }),
+            };
+            board[row_count][col_idx] = cell;
         }
-        row += 1;
+
+        row_count += 1;
     }
-    if row != SIZE {
-        return Err(BoardError::WrongRowCount(row));
+
+    if row_count != SIZE {
+        return Err(BoardError::WrongRowCount(row_count));
     }
+
     Ok(board)
 }
 
