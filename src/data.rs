@@ -273,17 +273,24 @@ pub fn load_board(path: &str) -> Result<Board, DataError> {
 // Ok(empty) only when e.kind() == io::ErrorKind::NotFound. Any other error is
 // Err(DataError::Io(e)). Keep skipping score lines that parse_score rejects.
 pub fn load_scores(path: &str) -> Result<Vec<ScoreRecord>, DataError> {
-    let text = match fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(_) => return Ok(Vec::new()),
+    let content = match fs::read_to_string(path) {
+        Ok(c) => c,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(DataError::Io(e)),
     };
-    let mut records = Vec::new();
-    for line in text.lines() {
-        if let Some(record) = parse_score(line) {
-            records.push(record);
+
+    let mut scores = Vec::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        if let Some(score) = parse_score(trimmed) {
+            scores.push(score);
         }
     }
-    Ok(records)
+
+    Ok(scores)
 }
 
 // Append "name,score" as one line, creating the file if needed.
