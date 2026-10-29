@@ -43,10 +43,13 @@ pub enum CoordError {
 // Study DataError in data.rs: it is a finished example of this impl.
 impl fmt::Display for CoordError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "TODO: {self:?}")
+        match self {
+            CoordError::BadFormat => write!(f, "type a column letter and a row number, like B7"),
+            CoordError::ColumnOutOfRange(ch) => write!(f, "column {} is off the board (A-J)", ch),
+            CoordError::RowOutOfRange(row) => write!(f, "row {} is off the board (1-10)", row),
+        }
     }
 }
-
 // Why a ship could not be placed.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PlaceError {
@@ -180,22 +183,36 @@ pub fn all_sunk(board: &Board) -> bool {
 // Use a match on parse::<usize>(), not map_err.
 pub fn parse_coord(text: &str) -> Result<(usize, usize), CoordError> {
     let text = text.trim();
-    let first = match text.chars().next() {
-        Some(c) => c,
-        None => return Err(CoordError::BadFormat),
-    };
-    if !first.is_ascii_alphabetic() {
+    if text.len() < 2 {
         return Err(CoordError::BadFormat);
     }
-    let row_number = match text[1..].trim().parse::<usize>() {
-        Ok(n) => n,
-        Err(_) => return Err(CoordError::BadFormat),
-    };
-    let col = (first.to_ascii_uppercase() as usize) - ('A' as usize);
-    if col >= SIZE || row_number < 1 || row_number > SIZE {
-        return Err(CoordError::BadFormat);
+
+    let mut chars = text.chars();
+    let col_char = chars.next().ok_or(CoordError::BadFormat)?;
+    let row_str: String = chars.collect();
+
+    // Parse row first or check format
+    let row_num: usize = row_str.parse().map_err(|_| CoordError::BadFormat)?;
+
+    // Check column
+    let upper_col = col_char.to_ascii_uppercase();
+    if !('A'..='J').contains(&upper_col) {
+        // If column is invalid, check if row is also out of range or just return column out of range
+        if !('a'..='z').contains(&col_char) && !('A'..='Z').contains(&col_char) {
+            return Err(CoordError::BadFormat);
+        }
+        return Err(CoordError::ColumnOutOfRange(upper_col));
     }
-    Ok((row_number - 1, col))
+
+    // Check row range (1 to 10)
+    if !(1..=10).contains(&row_num) {
+        return Err(CoordError::RowOutOfRange(row_num));
+    }
+
+    let col_idx = (upper_col as u8 - b'A') as usize;
+    let row_idx = row_num - 1;
+
+    Ok((row_idx, col_idx))
 }
 
 // One character per cell. Ships are hidden unless `reveal` is true.
