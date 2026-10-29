@@ -239,3 +239,86 @@ pub fn score_for(shots: u32) -> u32 {
     let most = (SIZE * SIZE) as u32;
     if shots >= most { 0 } else { most - shots }
 }
+pub fn check_fleet(board: &Board, fleet: &[ShipSpec]) -> bool {
+    // Track which cells have been accounted for
+    let mut visited = [[false; SIZE]; SIZE];
+
+    for ship in fleet {
+        let mut found = false;
+
+        // Search for a matching sequence of ship cells horizontally or vertically
+        for r in 0..SIZE {
+            for c in 0..SIZE {
+                // Try horizontal placement starting at (r, c)
+                if c + ship.length <= SIZE {
+                    let mut match_h = true;
+                    for i in 0..ship.length {
+                        if board[r][c + i] != Cell::Ship {
+                            match_h = false;
+                            break;
+                        }
+                    }
+                    if match_h {
+                        let mut overlap = false;
+                        for i in 0..ship.length {
+                            if visited[r][c + i] {
+                                overlap = true;
+                            }
+                        }
+                        if !overlap {
+                            for i in 0..ship.length {
+                                visited[r][c + i] = true;
+                            }
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Try vertical placement starting at (r, c)
+                if r + ship.length <= SIZE {
+                    let mut match_v = true;
+                    for i in 0..ship.length {
+                        if board[r + i][c] != Cell::Ship {
+                            match_v = false;
+                            break;
+                        }
+                    }
+                    if match_v {
+                        let mut overlap = false;
+                        for i in 0..ship.length {
+                            if visited[r + i][c] {
+                                overlap = true;
+                            }
+                        }
+                        if !overlap {
+                            for i in 0..ship.length {
+                                visited[r + i][c] = true;
+                            }
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if found {
+                break;
+            }
+        }
+
+        if !found {
+            return false;
+        }
+    }
+
+    // Ensure no extra ship cells exist on the board that weren't part of the fleet
+    for r in 0..SIZE {
+        for c in 0..SIZE {
+            if board[r][c] == Cell::Ship && !visited[r][c] {
+                return false;
+            }
+        }
+    }
+
+    true
+}
