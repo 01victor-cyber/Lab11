@@ -175,35 +175,30 @@ pub fn parse_ship_line(line: &str) -> Result<ShipSpec, ShipLineError> {
 //   - a file with zero valid ships is Err(DataError::NoShips(path.to_string())).
 // Blank lines and '#' lines are skipped silently but still count for line numbers.
 pub fn load_fleet(path: &str) -> Result<FleetReport, DataError> {
-    let text = match fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(e) => {
-            eprintln!("Could not read {path}: {e}");
-            return Ok(FleetReport {
-                fleet: Vec::new(),
-                skipped: Vec::new(),
-            });
-        }
-    };
+    let content = fs::read_to_string(path)?;
     let mut fleet = Vec::new();
-    let mut skipped_count = 0;
-    for line in text.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
+    let mut skipped = Vec::new();
+
+    for (idx, line) in content.lines().enumerate() {
+        let line_num = idx + 1;
+        let trimmed = line.trim();
+
+        // Skip blank lines and comments silently, but they count toward line numbers
+        if trimmed.is_empty() || trimmed.starts_with('#') {
             continue;
         }
-        match parse_ship_line(line) {
+
+        match parse_ship_line(trimmed) {
             Ok(ship) => fleet.push(ship),
-            Err(_) => skipped_count += 1,
+            Err(e) => skipped.push((line_num, e)),
         }
     }
-    if skipped_count > 0 {
-        eprintln!("Skipped {skipped_count} invalid line(s) in {path}");
+
+    if fleet.is_empty() {
+        return Err(DataError::NoShips(path.to_string()));
     }
-    Ok(FleetReport {
-        fleet,
-        skipped: Vec::new(),
-    })
+
+    Ok(FleetReport { fleet, skipped })
 }
 
 // Turn the text of a board file into a Board.
